@@ -1,7 +1,7 @@
 import fitz  # PyMuPDF
 
 # Abre el PDF
-pdf_path = 'Plantilla_respuestas.pdf'
+pdf_path = './Files/respuesta.pdf'
 pdf_document = fitz.open(pdf_path)
 
 # Muestra el número de páginas
