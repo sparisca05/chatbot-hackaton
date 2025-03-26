@@ -1,5 +1,9 @@
-autopep8==2.0.0
-pycodestyle==2.10.0
-PyPDF2==2.11.2
-tomli==2.0.1
-typing_extensions==4.4.0
+autopep8
+pycodestyle
+PyPDF2
+tomli
+typing_extensions
+fastapi
+uvicorn
+google-genai
+python-dotenv
