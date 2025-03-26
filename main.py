@@ -9,7 +9,7 @@ client = genai.Client(api_key=API_KEY)
 
 response = client.models.generate_content(
     model="gemini-2.0-flash",
-    contents="Cual es la capital de Colombia?",
+    contents="hola, me llamo Juanes",
 )
 
 print(response.text)

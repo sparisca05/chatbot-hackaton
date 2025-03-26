@@ -1,15 +1,18 @@
-import PyPDF2
+import fitz  # PyMuPDF
 
-pdf_file_obj = open('./Files/Plantilla_respuestas.pdf', 'rb')
+# Abre el PDF
+pdf_path = 'Plantilla_respuestas.pdf'
+pdf_document = fitz.open(pdf_path)
 
-pdf_reader = PyPDF2.PdfFileReader(pdf_file_obj)
-# print(pdf_reader.documentInfo)
-print(pdf_reader.getNumPages())
+# Muestra el número de páginas
+print(f"Número de páginas: {len(pdf_document)}")
 
-for page in range(pdf_reader.getNumPages()):
+# Extrae el texto
+for page_num in range(len(pdf_document)):
+    page = pdf_document.load_page(page_num)
+    text = page.get_text()
+    print(f"--- Página {page_num + 1} ---")
+    print(text)
 
-    page_obj = pdf_reader.getPage(page)
-
-    text = page_obj.extract_text()
-
-    print(text.strip())
+# Cierra el documento
+pdf_document.close()
