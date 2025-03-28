@@ -1,0 +1,13 @@
+.bot-3d {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+  
+  /* Asegura que el canvas ocupe todo el espacio */
+  .bot-3d canvas {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 400px;
+    display: block;
+  }

@@ -1,6 +1,8 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 import json
 import google.generativeai as genai
 import os
@@ -8,8 +10,19 @@ from dotenv import load_dotenv
 import matplotlib.pyplot as plt
 import pandas as pd
 import random
+import pdf
+import logging
 
 app = FastAPI()
+
+# Permitir CORS para frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Montar directorio estático para archivos frontend
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -20,12 +33,16 @@ async def get():
     with open("static/index.html") as f:
         return HTMLResponse(content=f.read(), status_code=200)
 
+logging.basicConfig(level=logging.INFO)
+logging.info("Starting server")
+
 # WebSocket para comunicación en tiempo real
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    logging.info("WebSocket connection attempt")
     await websocket.accept()
     historial = [
-        {"role": "system", "content": "Eres un asistente que ayuda a negociar pagos con clientes. Y debes tener de base estas respuestas predefinidas: "},
+        {"role": "system", "content": "Eres un asistente que debe realizar una negociación asertiva con un cliente que no puede pagar. Además, debes tener de base estas respuestas predefinidas: " + pdf.pdf()},
     ]
     respuesta = 0
 
@@ -38,6 +55,7 @@ async def websocket_endpoint(websocket: WebSocket):
     while True:
         try:
             data = await websocket.receive_text()
+            logging.info(f"Received message: {data}")
             respuesta += 1
 
             # Agregar input del usuario al historial
@@ -45,20 +63,14 @@ async def websocket_endpoint(websocket: WebSocket):
             
             if respuesta == 1:
                 # Generar valores aleatorios para crédito y días de mora
-                credito = random.randint(100, 300) * 10000
-                dias = random.randint(10, 90)
+                credito = str(random.randint(100, 300) * 10000)
+                dias = str(random.randint(10, 90))
                 
-                # Calcular cuotas quincenales y mensuales
-                cuotas_quincenales = round(credito / 6, 2)  # 6 biweekly payments in 3 months
-                cuotas_mensuales = round(credito / 3, 2)    # 3 monthly payments in 3 months
-                
-                # Formatear el mensaje
-                mensaje = (f"Tienes un crédito de ${credito:,} y {dias} días de mora. "
-                        f"Podemos dividirlo en 6 cuotas quincenales de ${cuotas_quincenales:,} "
-                        f"o en 3 cuotas mensuales de ${cuotas_mensuales:,}. "
-                        "¿Cuál opción te parece que se adapta mejor a tus necesidades?")
-                historial.append({"role": "assistant", "content": mensaje})
-                await websocket.send_text(mensaje)
+                historial.append({"role": "context", "content": "proporciona al usuario una respuesta basada en estos ejemplos (separados por ;) y teniendo en cuenta que el crédito es " + credito + " y los dias en mora " + dias + ": " + pdf.train()} )
+                response = model.generate_content([m["content"] for m in historial])
+                historial.append({"role": "assistant", "content": response.text})
+                await websocket.send_text(response.text)
+
             elif respuesta == 2:
                 # Inferir contexto
                 response = inferContext(data)
@@ -71,6 +83,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 historial.append({"role": "assistant", "content": response.text})
                 await websocket.send_text(response.text)
         except WebSocketDisconnect:
+            logging.info("WebSocket disconnected, attempting to reconnect...")
+            break
+        except Exception as e:
+            logging.error(f"WebSocket error: {e}")
+            await websocket.close()
             break
 
 # Cargar archivos Excel
@@ -79,7 +96,6 @@ conversaciones_df = pd.read_excel("./Files/negociaciones_compromiso_pago.xlsx")
 
 # Contar cuántas veces se ha ofrecido cada alternativa
 alternativas_exitosas = historial_df["Respuesta"].value_counts().head(20)
-print(alternativas_exitosas)
 
 # Cargar variables de entorno
 load_dotenv()
