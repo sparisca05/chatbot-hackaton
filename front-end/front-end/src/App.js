@@ -1,54 +1,36 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { GoogleGenAI } from '@google/genai';
+
 import Bot3D from './components/Bot3D/Bot3D';
 import Chat from './components/Chat/Chat';
 import './App.css';
 
+const apiKey = process.env.REACT_APP_GOOGLE_GENAI_API_KEY;
+
+if (!apiKey) {
+  console.error("API Key is missing. Please set REACT_APP_GOOGLE_GENAI_API_KEY in your .env file.");
+}
+
+const ai = new GoogleGenAI({ apiKey });
+
+const chat = ai.chats.create({
+  model: "gemini-2.0-flash",
+  config: {
+    systemInstruction: "Te llamas Isabot y eres un asistente que debe realizar una negociación asertiva con un cliente que no puede pagar."
+  },
+  });
+
 function App() {
-  const [messages, setMessages] = useState([]);
+  const historialChatBot = [ ]
+  const [messages, setMessages] = useState([
+    {
+      text: "👋 Hola! Soy Isabot, tu Chatbot de Negociación de Pagos.\n Escribe algo para obtener tu estado de cuenta actual.",
+      sender: 'bot',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+  ]);
   const [isTyping, setIsTyping] = useState(false);
-  const ws = useRef(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const maxRetries = 5;
-
-  useEffect(() => {
-    const connectWebSocket = () => {
-      ws.current = new WebSocket('ws://127.0.0.1:8000/ws');
-
-      ws.current.onopen = () => {
-        console.log('Conexión establecida');
-        setRetryCount(0);
-        addBotMessage("¡Hola! Soy tu asistente virtual de SISTECREDITO. ¿En qué puedo ayudarte hoy?");
-      };
-
-      ws.current.onmessage = (event) => {
-        setIsTyping(false);
-        addBotMessage(event.data);
-      };
-
-      ws.current.onerror = (error) => {
-        console.error('Error en WebSocket:', error);
-        addBotMessage("Error de conexión. Por favor intenta nuevamente.");
-        setIsTyping(false);
-      };
-
-      ws.current.onclose = () => {
-        console.log('Conexión cerrada');
-        if (retryCount < maxRetries) {
-          setRetryCount(prev => prev + 1);
-          setTimeout(connectWebSocket, 2000);
-        } else {
-          addBotMessage("No se pudo establecer la conexión. Por favor, inténtelo más tarde.");
-        }
-      };
-    };
-
-    connectWebSocket();
-
-    return () => {
-      if (ws.current) ws.current.close();
-    };
-  }, [retryCount]);
-
+    
   const addBotMessage = (text) => {
     const newMessage = {
       text,
@@ -58,8 +40,8 @@ function App() {
     setMessages(prev => [newMessage, ...prev]);
   };
 
-  const handleSendMessage = (message) => {
-    if (!message.trim() || !ws.current) return;
+  const handleSendMessage = async (message) => {
+    if (!message.trim()) return;
 
     // Añadir mensaje del usuario
     const userMessage = {
@@ -70,14 +52,28 @@ function App() {
     setMessages(prev => [userMessage, ...prev]);
     setIsTyping(true);
 
-    // Enviar mensaje al backend
-    if (ws.current.readyState === WebSocket.OPEN) {
-      ws.current.send(message);
-    } else {
-      console.error('WebSocket no está conectado');
-      setIsTyping(false);
-      addBotMessage("No puedo conectarme al servidor. Recargue la página.");
+    // Enviar mensaje al bot
+    let accumulatedResponse = ""; // Variable to accumulate the response
+    const response = await chat.sendMessageStream({
+      message: message
+    });
+
+    for await (const chunk of response) {
+      const text = chunk.text;
+      if (text) {
+        accumulatedResponse += text; // Accumulate the chunks
+      }
     }
+
+    setIsTyping(false);
+
+    // Add the complete response as a single message
+    if (accumulatedResponse) {
+      addBotMessage(accumulatedResponse);
+    }
+
+    // Añadir respuesta del bot al historial
+    historialChatBot.push(accumulatedResponse);
   };
 
   return (

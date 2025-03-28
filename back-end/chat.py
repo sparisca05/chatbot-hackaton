@@ -24,9 +24,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Montar directorio estático para archivos frontend
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
 # Ruta principal que sirve el frontend
 @app.get("/", response_class=HTMLResponse)
 async def get():

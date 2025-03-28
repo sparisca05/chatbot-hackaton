@@ -1,11 +1,9 @@
-autopep8
-pycodestyle
 PyPDF2
-tomli
-typing_extensions
 fastapi
 uvicorn
 google-genai
+google
+matplotlib
 python-dotenv
 pandas
 openpyxl
